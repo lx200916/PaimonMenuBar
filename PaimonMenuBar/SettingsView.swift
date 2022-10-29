@@ -37,263 +37,293 @@ struct PreferenceSettingsView: View {
     
     @State private var isEditing = false
     @State private var isNotNotificationAuthorized = false
-    
-    var body: some View {
-        VStack(spacing: 20) {
-            Form {
-                LaunchAtLogin.Toggle {
-                    Text("Launch at Login")
-                }
-                .formLabel(Text("Start:"))
+    func buildIconStyleView(iconStyle:IconStyle)->some View{
+        return
+            HStack(alignment: .center){
+                Image("FragileResin").renderingMode(.template
+                )
                 
-                CheckForUpdatesView(updaterViewModel: updaterViewModel)
-                    .formLabel(Text("Updates:"))
-                Text("Current version: \(Bundle.main.appVersion ?? "") (\(Bundle.main.buildNumber ?? ""))")
-                    .font(.caption).opacity(0.6)
-                
-                Defaults.Toggle(key: .isStatusIconTemplate) {
-                    Image("FragileResin")
-                        .renderingMode(isStatusIconTemplate ? .template : .original)
-                        .frame(width: 19, height: 19)
-                }
-                .onChange { _ in
-                    AppDelegate.shared.updateStatusIcon()
-                }
-                .formLabel(Text("Menubar icon:"))
-                Text(isStatusIconTemplate ? "Native macOS adaptive icon." : "Colored icon.").font(.caption).opacity(0.6)
-                
-                
-                VStack{
-                    HStack(alignment: .center){
-                        Image("FragileResin").renderingMode(.template
-                        )
-                        
-                        switch(lastIconStyle){
-                        case .Normal: Text("20/160")
-                        case .IconOnly:
-                            Text(" ")
-                        case .Compact:
-                            Text("20")
-                        }
+                switch(iconStyle){
+                case .Normal: Text("20/160")
+                case .IconOnly:
+                    Text(" ")
+                case .Compact:
+                    Text("20")
+                }}
+            .fixedSize()
+        
+        
+    }
+        var body: some View {
+            VStack(spacing: 20) {
+                Form {
+                    LaunchAtLogin.Toggle {
+                        Text("Launch at Login")
                     }
+                    .formLabel(Text("Start:"))
+                    
+                    CheckForUpdatesView(updaterViewModel: updaterViewModel)
+                        .formLabel(Text("Updates:"))
+                    Text("Current version: \(Bundle.main.appVersion ?? "") (\(Bundle.main.buildNumber ?? ""))")
+                        .font(.caption).opacity(0.6)
+                    
+                    Defaults.Toggle(key: .isStatusIconTemplate) {
+                        Image("FragileResin")
+                            .renderingMode(isStatusIconTemplate ? .template : .original)
+                            .frame(width: 19, height: 19)
+                    }
+                    .onChange { _ in
+                        AppDelegate.shared.updateStatusIcon()
+                    }
+                    .formLabel(Text("Menubar icon:"))
+                    Text(isStatusIconTemplate ? "Native macOS adaptive icon." : "Colored icon.").font(.caption).opacity(0.6)
+                    
+                    
+                    //                VStack{
+                    //                    HStack(alignment: .center){
+                    //                        Image("FragileResin").renderingMode(.template
+                    //                        )
+                    //
+                    //                        switch(lastIconStyle){
+                    //                        case .Normal: Text("20/160")
+                    //                        case .IconOnly:
+                    //                            Text(" ")
+                    //                        case .Compact:
+                    //                            Text("20")
+                    //                        }
+                    //                    }
                     Picker("", selection: $lastIconStyle) {
-                        Text("Normal").tag(IconStyle.Normal)
-                        Text("Compact").tag(IconStyle.Compact)
-                        Text("IconOnly").tag(IconStyle.IconOnly)
+                        buildIconStyleView(iconStyle: IconStyle.Normal).tag(IconStyle.Normal)
+                        buildIconStyleView(iconStyle: IconStyle.Compact).tag(IconStyle.Compact)
+                        buildIconStyleView(iconStyle: IconStyle.IconOnly).tag(IconStyle.IconOnly)
                     }.onChange(of: lastIconStyle, perform: { _ in
                         AppDelegate.shared.updateStatusBar()
                     })
-                    .pickerStyle(.segmented).fixedSize()
+                    .pickerStyle(.menu).fixedSize()
                     
                     
-                }.formLabel(Text("Status Icon Style:")).padding()
-                
-                Defaults.Toggle(key: .isNotifyParametricReady) {
-                    Image(
-                        systemName: isNotifyParametricReady ? "bell.badge" : "bell.slash"
-                    )
-                    if isNotNotificationAuthorized {
-                        Label("⚠️ Notification unauthorized.", systemImage: "arrow.left")
-                            .font(.caption2).opacity(0.8)
-                    }
-                }
-                .formLabel(Text("Notify:"))
-                .onAppear {
-                    getNotificationPermission { authorized in
-                        isNotNotificationAuthorized = !authorized
-                    }
-                }
-                .onChange(of: isNotifyParametricReady) { _ in
-                    getNotificationPermission { authorized in
-                        isNotNotificationAuthorized = !authorized
-                    }
-                }
-                Text("... when parametric transformer is ready.").font(.caption).opacity(0.6)
-                
-                Slider(value: $recordUpdateInterval, in: 60 ... 16 * 60, step: 60, label: {
-                    Text("Update interval:")
-                }) { editing in
-                    isEditing = editing
-                }
-                .frame(width: 360)
-                
-                Text("Paimon fetches data every \(recordUpdateInterval, specifier: "%.0f") seconds*")
-                    .font(.caption).opacity(0.6)
-            }
-            
-            Divider()
-            
-            Label("*Resin replenishes every 8 minutes, for your reference.", image: "FragileResin")
-                .font(.caption)
-                .opacity(0.6)
-        }
-    }
-}
-
-struct ConfigurationSettingsView: View {
-    @Default(.uid) private var uid
-    @Default(.server) private var server
-    @Default(.cookie) private var cookie
-    
-    @State private var alertText = ""
-    @State private var alertMessage = ""
-    @State private var showConfigValidAlert = false
-    
-    @State private var isLoading = false
-    
-    var body: some View {
-        VStack {
-            Text("User")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            Form {
-                TextField("UID:", text: $uid)
-                    .textFieldStyle(.roundedBorder)
-                Picker("Server:", selection: $server) {
-                    ForEach(GenshinServer.allCases, id: \.id) { value in
-                        Text(value.serverName).tag(value)
-                    }
-                }.pickerStyle(SegmentedPickerStyle())
-            }.padding([.bottom])
-            
-            Text("Cookie")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            HStack {
-                Text("Paste your cookie from:")
-                    .font(.subheadline)
-                Link(destination: URL(string: server.cookieSiteUrl)!) {
-                    Text(server.cookieSiteUrl)
-                        .font(.subheadline)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            TextEditor(text: $cookie)
-                .font(.system(.body, design: .monospaced))
-                .frame(height: 120).cornerRadius(6)
-                .background(Color.black.cornerRadius(6).shadow(radius: 0.5, y: 0.8).opacity(0.6))
-            
-            Spacer()
-            
-            HStack {
-                Label("This cookie is only stored locally.", systemImage: "exclamationmark.circle")
-                    .font(.caption).opacity(0.6)
-                Spacer()
-                Button {
-                    GameRecordUpdater.shared.clearGameRecord()
-                    Task {
-                        isLoading = true
-                        if let _ = await GameRecordUpdater.shared.fetchGameRecordAndRenderNow() {
-                            self.alertText = String.localized("👌 It's working!")
-                            self.alertMessage = String.localized("Your config is valid.")
-                        } else {
-                            self.alertText = String.localized("🚫 Whoooops...")
-                            self.alertMessage = String.localized("Failed to fetch, check your config.")
+                    //            }.formLabel(Text("Status Icon Style:")).padding()
+                    //                Menu("默认"){
+                    //                    Button {
+                    //                        changeIconStyle(iconStyle: IconStyle.Normal)
+                    //                    } label: {
+                    //                        HStack(alignment: .center){
+                    //                            Image("FragileResin").renderingMode(.template)
+                    //                            Text(20/160)
+                    //                        }
+                    //                    }
+                    
+                    
+                    
+                    //                }
+                    .fixedSize().formLabel(Text("Status Icon Style:"))
+                    
+                    Defaults.Toggle(key: .isNotifyParametricReady) {
+                        Image(
+                            systemName: isNotifyParametricReady ? "bell.badge" : "bell.slash"
+                        )
+                        if isNotNotificationAuthorized {
+                            Label("⚠️ Notification unauthorized.", systemImage: "arrow.left")
+                                .font(.caption2).opacity(0.8)
                         }
-                        self.showConfigValidAlert.toggle()
-                        isLoading = false
                     }
-                } label: {
-                    Label {
-                        Text("Test config")
-                    } icon: {
-                        Image(systemName: "bolt")
-                            .opacity(isLoading ? 0 : 1)
-                            .overlay(isLoading ? ProgressView().scaleEffect(0.4) : nil)
+                    .formLabel(Text("Notify:"))
+                    .onAppear {
+                        getNotificationPermission { authorized in
+                            isNotNotificationAuthorized = !authorized
+                        }
                     }
+                    .onChange(of: isNotifyParametricReady) { _ in
+                        getNotificationPermission { authorized in
+                            isNotNotificationAuthorized = !authorized
+                        }
+                    }
+                    Text("... when parametric transformer is ready.").font(.caption).opacity(0.6)
+                    
+                    Slider(value: $recordUpdateInterval, in: 60 ... 16 * 60, step: 60, label: {
+                        Text("Update interval:")
+                    }) { editing in
+                        isEditing = editing
+                    }
+                    .frame(width: 360)
+                    
+                    Text("Paimon fetches data every \(recordUpdateInterval, specifier: "%.0f") seconds*")
+                        .font(.caption).opacity(0.6)
                 }
-                .alert(isPresented: self.$showConfigValidAlert, content: {
-                    Alert(title: Text(alertText), message: Text(alertMessage))
-                })
-                .disabled(isLoading)
                 
-                Link(destination: URL(string: "https://paimon.swo.moe/#how-to-get-my-cookie")!) {
-                    Button("?") {
-                        print("Navigating to help page.")
-                    }.clipShape(Circle()).shadow(radius: 1)
-                }
+                Divider()
+                
+                Label("*Resin replenishes every 8 minutes, for your reference.", image: "FragileResin")
+                    .font(.caption)
+                    .opacity(0.6)
             }
-            
-        }.padding()
-    }
-}
-
-struct AboutSettingsView: View {
-    var body: some View {
-        VStack(spacing: 8) {
-            Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
-            Text(Bundle.main.appName ?? "").font(.headline.bold())
-            Text("Build \(Bundle.main.appVersion ?? "") (\(Bundle.main.buildNumber ?? ""))")
-                .font(.system(.subheadline, design: .monospaced))
-            
-            Divider()
-            
-            Text(
-                "Made with love @ [SpencerWoo](https://spencerwoo.com) | Check [Paimon's website](https://paimon.swo.moe)"
-            )
-            .font(.system(.caption, design: .monospaced))
-            Text(
-                "Icon by [Chawong](https://www.pixiv.net/en/artworks/92415888) | GitHub: [spencerwooo/PaimonMenuBar](https://github.com/spencerwooo/PaimonMenuBar)"
-            )
-            .font(.system(.caption, design: .monospaced))
-        }
-    }
-}
-
-struct SettingsView: View {
-    var body: some View {
-        TabView {
-            PreferenceSettingsView()
-                .tabItem {
-                    Label("Preferences", systemImage: "gear")
-                }
-            ConfigurationSettingsView()
-                .tabItem {
-                    Label("Configuration", systemImage: "square.and.pencil")
-                }
-            AboutSettingsView()
-                .tabItem {
-                    Label("About", systemImage: "person")
-                }
-        }
-        .frame(width: 560, height: 400)
-    }
-}
-
-/// Alignment guide for aligning a text field in a `Form`.
-/// Thanks for Jim Dovey  https://developer.apple.com/forums/thread/126268
-extension HorizontalAlignment {
-    private enum ControlAlignment: AlignmentID {
-        static func defaultValue(in context: ViewDimensions) -> CGFloat {
-            return context[HorizontalAlignment.center]
         }
     }
     
-    static let controlAlignment = HorizontalAlignment(ControlAlignment.self)
-}
-
-// Adapted from https://gist.github.com/marcprux/afd2f80baa5b6d60865182a828e83586
-public extension View {
-    /// Attaches a label to this view for laying out in a `Form`
-    /// - Parameter view: the label view to use
-    /// - Returns: an `HStack` with an alignment guide for placing in a form
-    func formLabel<V: View>(_ view: V) -> some View {
-        HStack {
-            view
-            self
-                .alignmentGuide(.controlAlignment) { $0[.leading] }
+    struct ConfigurationSettingsView: View {
+        @Default(.uid) private var uid
+        @Default(.server) private var server
+        @Default(.cookie) private var cookie
+        
+        @State private var alertText = ""
+        @State private var alertMessage = ""
+        @State private var showConfigValidAlert = false
+        
+        @State private var isLoading = false
+        
+        var body: some View {
+            VStack {
+                Text("User")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Form {
+                    TextField("UID:", text: $uid)
+                        .textFieldStyle(.roundedBorder)
+                    Picker("Server:", selection: $server) {
+                        ForEach(GenshinServer.allCases, id: \.id) { value in
+                            Text(value.serverName).tag(value)
+                        }
+                    }.pickerStyle(SegmentedPickerStyle())
+                }.padding([.bottom])
+                
+                Text("Cookie")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                HStack {
+                    Text("Paste your cookie from:")
+                        .font(.subheadline)
+                    Link(destination: URL(string: server.cookieSiteUrl)!) {
+                        Text(server.cookieSiteUrl)
+                            .font(.subheadline)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                TextEditor(text: $cookie)
+                    .font(.system(.body, design: .monospaced))
+                    .frame(height: 120).cornerRadius(6)
+                    .background(Color.black.cornerRadius(6).shadow(radius: 0.5, y: 0.8).opacity(0.6))
+                
+                Spacer()
+                
+                HStack {
+                    Label("This cookie is only stored locally.", systemImage: "exclamationmark.circle")
+                        .font(.caption).opacity(0.6)
+                    Spacer()
+                    Button {
+                        GameRecordUpdater.shared.clearGameRecord()
+                        Task {
+                            isLoading = true
+                            if let _ = await GameRecordUpdater.shared.fetchGameRecordAndRenderNow() {
+                                self.alertText = String.localized("👌 It's working!")
+                                self.alertMessage = String.localized("Your config is valid.")
+                            } else {
+                                self.alertText = String.localized("🚫 Whoooops...")
+                                self.alertMessage = String.localized("Failed to fetch, check your config.")
+                            }
+                            self.showConfigValidAlert.toggle()
+                            isLoading = false
+                        }
+                    } label: {
+                        Label {
+                            Text("Test config")
+                        } icon: {
+                            Image(systemName: "bolt")
+                                .opacity(isLoading ? 0 : 1)
+                                .overlay(isLoading ? ProgressView().scaleEffect(0.4) : nil)
+                        }
+                    }
+                    .alert(isPresented: self.$showConfigValidAlert, content: {
+                        Alert(title: Text(alertText), message: Text(alertMessage))
+                    })
+                    .disabled(isLoading)
+                    
+                    Link(destination: URL(string: "https://paimon.swo.moe/#how-to-get-my-cookie")!) {
+                        Button("?") {
+                            print("Navigating to help page.")
+                        }.clipShape(Circle()).shadow(radius: 1)
+                    }
+                }
+                
+            }.padding()
         }
-        .alignmentGuide(.leading) { $0[.controlAlignment] }
     }
-}
-
-struct SettingsView_Previews: PreviewProvider {
-    static var previews: some View {
-        Group {
-            SettingsView()
-            PreferenceSettingsView()
-            ConfigurationSettingsView()
-            AboutSettingsView()
+    
+    struct AboutSettingsView: View {
+        var body: some View {
+            VStack(spacing: 8) {
+                Image(nsImage: NSImage(named: "AppIcon") ?? NSImage())
+                Text(Bundle.main.appName ?? "").font(.headline.bold())
+                Text("Build \(Bundle.main.appVersion ?? "") (\(Bundle.main.buildNumber ?? ""))")
+                    .font(.system(.subheadline, design: .monospaced))
+                
+                Divider()
+                
+                Text(
+                    "Made with love @ [SpencerWoo](https://spencerwoo.com) | Check [Paimon's website](https://paimon.swo.moe)"
+                )
+                .font(.system(.caption, design: .monospaced))
+                Text(
+                    "Icon by [Chawong](https://www.pixiv.net/en/artworks/92415888) | GitHub: [spencerwooo/PaimonMenuBar](https://github.com/spencerwooo/PaimonMenuBar)"
+                )
+                .font(.system(.caption, design: .monospaced))
+            }
         }
     }
-}
+    
+    struct SettingsView: View {
+        var body: some View {
+            TabView {
+                PreferenceSettingsView()
+                    .tabItem {
+                        Label("Preferences", systemImage: "gear")
+                    }
+                ConfigurationSettingsView()
+                    .tabItem {
+                        Label("Configuration", systemImage: "square.and.pencil")
+                    }
+                AboutSettingsView()
+                    .tabItem {
+                        Label("About", systemImage: "person")
+                    }
+            }
+            .frame(width: 560, height: 400)
+        }
+    }
+    
+    /// Alignment guide for aligning a text field in a `Form`.
+    /// Thanks for Jim Dovey  https://developer.apple.com/forums/thread/126268
+    extension HorizontalAlignment {
+        private enum ControlAlignment: AlignmentID {
+            static func defaultValue(in context: ViewDimensions) -> CGFloat {
+                return context[HorizontalAlignment.center]
+            }
+        }
+        
+        static let controlAlignment = HorizontalAlignment(ControlAlignment.self)
+    }
+    
+    // Adapted from https://gist.github.com/marcprux/afd2f80baa5b6d60865182a828e83586
+    public extension View {
+        /// Attaches a label to this view for laying out in a `Form`
+        /// - Parameter view: the label view to use
+        /// - Returns: an `HStack` with an alignment guide for placing in a form
+        func formLabel<V: View>(_ view: V) -> some View {
+            HStack {
+                view
+                self
+                    .alignmentGuide(.controlAlignment) { $0[.leading] }
+            }
+            .alignmentGuide(.leading) { $0[.controlAlignment] }
+        }
+    }
+    
+    struct SettingsView_Previews: PreviewProvider {
+        static var previews: some View {
+            Group {
+                SettingsView()
+                PreferenceSettingsView()
+                ConfigurationSettingsView()
+                AboutSettingsView()
+            }
+        }
+    }
